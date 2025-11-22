@@ -1,0 +1,13 @@
+{
+  "name": "@mono/frontend",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "test": "vitest"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.17",
+    "tailwindcss": "4.1.17"
+  }
+}
