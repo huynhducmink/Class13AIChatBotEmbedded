@@ -89,6 +89,9 @@ Copy-Item .env .env
 cp .env .env
 ```
 
+**To test AI chat and function calling**
+Edit sample API key with your actual API key in python_be/services/chat_service.py
+
 ## Running the API
 
 > **Important for Windows users:** Always activate the conda environment first with `conda activate ai_class` and ensure you're in the `python_be` directory before running the commands below.
@@ -131,6 +134,10 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
 ### Health Check
 - **GET** `/health`
   - Returns health status
+
+### Chat endpoint
+- **POST** `/api/v1/chat/chat`
+  - Call AzureOpenAI API with sample function calling (search document)
 
 ### File Management
 

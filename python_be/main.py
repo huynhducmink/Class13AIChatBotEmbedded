@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routes import search_router
 from api.file_routes import file_router
 from api.index_routes import index_router
+from api.chat_routes import chat_router
 
 app = FastAPI(
     title="STM32 Manual Search API",
@@ -26,6 +27,7 @@ app = FastAPI(
     3. Use the `/api/v1/search` endpoint to search documentation
     4. Check `/api/v1/collection/stats` for collection information
     5. Visit `/health` for API health status
+    6. Chat with the model to ask for information about the documents using `/api/v1/chat/chat` endpoint
     """,
     version="1.0.0",
     contact={
@@ -68,6 +70,7 @@ app.add_middleware(
 app.include_router(search_router, prefix="/api/v1", tags=["search"])
 app.include_router(file_router, prefix="/api/v1", tags=["files"])
 app.include_router(index_router, prefix="/api/v1", tags=["index"])
+app.include_router(chat_router, prefix="/api/v1", tags=["chat"])
 
 @app.get(
     "/",
