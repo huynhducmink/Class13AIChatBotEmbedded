@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
 import { Sidebar } from './components/Sidebar';
@@ -310,6 +310,29 @@ export default function App() {
     })();
   };
 
+  const handleAddNotice = (content: string) => {
+    if (!currentConversationId) return;
+    const noticeMessage: Message = {
+      id: Date.now().toString(),
+      type: 'bot',
+      content,
+      timestamp: new Date(),
+    };
+
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === currentConversationId
+          ? {
+              ...c,
+              messages: [...c.messages, noticeMessage],
+              lastMessage: content.substring(0, 50),
+              timestamp: new Date(),
+            }
+          : c
+      )
+    );
+  };
+
   const getBotResponse = async (userInput: string, file?: File): Promise<{ text: string; sources: DocumentSource[] }> => {
   // Basic POST to backend chat endpoint. Expects response shape { assistant_response, search_results }
   const endpoint = `${API_ROOT}/api/v1/chat/chat`;
@@ -448,7 +471,7 @@ export default function App() {
           </Card>
 
           {/* Chat Input */}
-          <ChatInput onSendMessage={handleSendMessage} isSending={!!pendingResponses[currentConversationId]} />
+          <ChatInput onSendMessage={handleSendMessage} onAddNotice={handleAddNotice} isSending={!!pendingResponses[currentConversationId]} />
         </div>
       </div>
 

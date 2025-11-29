@@ -115,9 +115,9 @@ Desktop.ini
 .idea/
 
 # Local vectordb / indexes
-chroma_stm32/
+# chroma_stm32/
 
 # Common index/database artifacts in this project context
-*.sqlite3
+# *.sqlite3
 index.faiss
 index.pkl

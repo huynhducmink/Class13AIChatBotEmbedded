@@ -1,5 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
-import type React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card } from './ui/card';
@@ -10,10 +9,11 @@ import { fileService } from '../services/fileService';
 
 interface ChatInputProps {
   onSendMessage: (content: string, file?: File) => void;
+  onAddNotice: (content: string) => void;
   isSending?: boolean;
 }
 
-export function ChatInput({ onSendMessage, isSending }: ChatInputProps) {
+export function ChatInput({ onSendMessage, onAddNotice, isSending }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -40,12 +40,17 @@ export function ChatInput({ onSendMessage, isSending }: ChatInputProps) {
 
     setErrorMsg(null);
 
+    const trimmed = message.trim();
+    const isAutoPlaceholder = trimmed.startsWith('Đã chọn:') || trimmed.startsWith('Đã ghi âm');
+    const isUserMessageEmpty = trimmed === '' || isAutoPlaceholder;
+    const onlyUpload = !!selectedFile && isUserMessageEmpty;
+
     // If there's a selected file, attempt server upload first (for supported types)
     if (selectedFile) {
       const ext = (selectedFile.name.split('.').pop() || '').toLowerCase();
       const allowed = ['pdf', 'txt', 'doc', 'docx'];
 
-      if (allowed.includes(ext)) {
+      if (allowed.indexOf(ext) !== -1) {
         try {
           setUploading(true);
           setUploadProgress(0);
@@ -59,16 +64,34 @@ export function ChatInput({ onSendMessage, isSending }: ChatInputProps) {
           setUploading(false);
           setUploadProgress(0);
         }
+        // If user only intended to upload (no real message), don't send chat
+        if (onlyUpload) {
+          onAddNotice(`✅ Tài liệu "${selectedFile.name}" đã được tải lên thành công.`);
+          setMessage('');
+          setSelectedFile(null);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+          return;
+        }
       } else if (ext === 'wav') {
-        // Voice recordings are not supported by backend upload; send in chat only
-        setErrorMsg('File ghi âm (.wav) chưa hỗ trợ upload lên server. Vẫn gửi trong chat.');
+        // Voice recordings are not supported by backend upload
+        if (onlyUpload) {
+          setErrorMsg('File ghi âm (.wav) chưa hỗ trợ upload lên server. Vui lòng nhập nội dung nếu muốn gửi qua chat.');
+          return;
+        } else {
+          setErrorMsg('File ghi âm (.wav) chưa hỗ trợ upload lên server. Vẫn gửi trong chat.');
+        }
       } else {
-        setErrorMsg('Loại file không hỗ trợ upload lên server. Chỉ gửi trong chat.');
+        if (onlyUpload) {
+          setErrorMsg('Loại file không hỗ trợ upload lên server. Vui lòng nhập nội dung nếu muốn gửi qua chat.');
+          return;
+        } else {
+          setErrorMsg('Loại file không hỗ trợ upload lên server. Chỉ gửi trong chat.');
+        }
       }
     }
 
     // Proceed to send the chat message (with file attached for context)
-    onSendMessage(message.trim() || (selectedFile ? `Đã gửi file: ${selectedFile.name}` : ''), selectedFile || undefined);
+    onSendMessage(trimmed || (selectedFile ? `Đã gửi file: ${selectedFile.name}` : ''), selectedFile || undefined);
     setMessage('');
     setSelectedFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -150,7 +173,8 @@ export function ChatInput({ onSendMessage, isSending }: ChatInputProps) {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    const secsStr = ('0' + secs).slice(-2);
+    return `${mins}:${secsStr}`;
   };
 
   return (
