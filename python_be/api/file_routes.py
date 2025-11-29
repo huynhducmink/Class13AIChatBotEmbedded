@@ -395,3 +395,64 @@ async def download_file(filename: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error downloading file: {str(e)}")
+
+
+@file_router.get(
+    "/files/view/{filename}",
+    summary="View PDF File",
+    description="View a PDF file directly in the browser with proper CORS headers for PDF.js",
+    responses={
+        200: {
+            "description": "PDF file returned successfully",
+            "content": {"application/pdf": {}},
+        },
+        404: {"description": "File not found"},
+        500: {"description": "Internal server error"},
+    },
+)
+async def view_pdf(filename: str):
+    """
+    View a PDF file directly in the browser with proper headers for PDF.js.
+    
+    **Parameters:**
+    - **filename**: Name of the PDF file to view (e.g., "stm32_manual.pdf")
+    
+    This endpoint is specifically designed for viewing PDFs in the browser using PDF.js,
+    with appropriate CORS headers and Content-Type.
+    """
+    try:
+        # Create safe filename (prevent directory traversal)
+        safe_filename = Path(filename).name
+        file_path = DOCUMENT_SOURCE_DIR / safe_filename
+        
+        # Check if file exists
+        if not file_path.exists() or not file_path.is_file():
+            raise HTTPException(
+                status_code=404,
+                detail=f"File '{safe_filename}' not found"
+            )
+        
+        # Check if it's a PDF
+        if not safe_filename.lower().endswith('.pdf'):
+            raise HTTPException(
+                status_code=400,
+                detail="Only PDF files can be viewed with this endpoint"
+            )
+        
+        # Return PDF file with inline display and CORS headers
+        return FileResponse(
+            path=str(file_path),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'inline; filename="{safe_filename}"',
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Cache-Control": "public, max-age=3600",
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error viewing PDF: {str(e)}")

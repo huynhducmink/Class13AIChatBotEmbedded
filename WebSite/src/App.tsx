@@ -3,10 +3,20 @@ import { ChatMessage } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
 import { Sidebar } from './components/Sidebar';
 import { DocumentManager } from './components/DocumentManager';
+import { PdfViewer } from './components/PdfViewer';
 import { Card } from './components/ui/card';
 import { ScrollArea } from './components/ui/scroll-area';
 import { Code2 } from 'lucide-react';
 import { API_ROOT } from './config';
+
+export interface DocumentSource {
+  text: string;
+  source: string;
+  page?: number;
+  chunk_id?: string;
+  distance?: number;
+  score?: number;
+}
 
 export interface Message {
   id: string;
@@ -19,6 +29,7 @@ export interface Message {
     size: number;
     type: string;
   };
+  sources?: DocumentSource[];
 }
 
 interface Conversation {
@@ -55,6 +66,12 @@ export default function App() {
   // track pending bot responses per conversation to avoid duplicate sends/placeholders
   const [pendingResponses, setPendingResponses] = useState<Record<string, boolean>>({});
   const pendingResponsesRef = useRef<Record<string, boolean>>({});
+  const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
+  const [pdfViewerConfig, setPdfViewerConfig] = useState<{
+    url: string;
+    page?: number;
+    searchText?: string;
+  } | null>(null);
 
   const currentConversation = conversations.find(
     (c) => c.id === currentConversationId
@@ -229,13 +246,14 @@ export default function App() {
   setPendingResponses((prev) => ({ ...prev, [currentConversationId]: true }));
 
       try {
-        const assistantText = await getBotResponse(content);
+        const response = await getBotResponse(content);
 
         const botMessage: Message = {
           id: (Date.now() + 2).toString(),
           type: 'bot',
-          content: assistantText,
+          content: response.text,
           timestamp: new Date(),
+          sources: response.sources,
         };
 
         // Replace placeholder with actual bot message
@@ -291,7 +309,7 @@ export default function App() {
     })();
   };
 
-  const getBotResponse = async (userInput: string, file?: File): Promise<string> => {
+  const getBotResponse = async (userInput: string, file?: File): Promise<{ text: string; sources: DocumentSource[] }> => {
   // Basic POST to backend chat endpoint. Expects response shape { assistant_response, search_results }
   const endpoint = `${API_ROOT}/api/v1/chat/chat`;
     try {
@@ -337,27 +355,40 @@ export default function App() {
         assistant = 'Không có phản hồi hợp lệ từ server.';
       }
 
-      // Append search results as plain text lines (safe stringify)
-      if (data && Array.isArray(data.search_results) && data.search_results.length) {
-        assistant += '\n\n[Search results]:';
-        assistant += '\n' + data.search_results
-          .map((s: any, i: number) => {
-            if (!s) return `(${i + 1}) <empty>`;
-            if (typeof s === 'string') return `(${i + 1}) ${s}`;
-            // prefer readable fields
-            const title = s.title || s.name || s.id;
-            const snippet = s.snippet || s.excerpt || s.summary;
-            const id = title ? `${title}` : JSON.stringify(s);
-            return `(${i + 1}) ${id}${snippet ? ` - ${snippet}` : ''}`;
-          })
-          .join('\n');
-      }
+      // Extract sources from backend response
+      const sources: DocumentSource[] = data?.sources || [];
 
-      return assistant;
+      return { text: assistant, sources };
     } catch (err: any) {
       // bubble up the error to caller so it can show a message
       throw err;
     }
+  };
+
+  const handleOpenPdf = (source: string, page?: number, searchText?: string) => {
+    // Extract just the filename from the source path (e.g., "document_source/file.pdf" -> "file.pdf")
+    const filename = source.split('/').pop() || source.split('\\').pop() || source;
+    const pdfUrl = `${API_ROOT}/api/v1/files/view/${encodeURIComponent(filename)}`;
+    console.log('Opening PDF:', { source, filename, pdfUrl, page, searchText });
+    
+    // Build URL with query parameters for PDF viewer page
+    const baseUrl = window.location.origin;
+    const params = new URLSearchParams({
+      url: encodeURIComponent(pdfUrl),
+      page: (page || 1).toString(),
+    });
+    
+    if (searchText) {
+      params.set('search', searchText);
+    }
+    
+    // Open PDF viewer in a new tab
+    window.open(`${baseUrl}?${params.toString()}`, '_blank');
+  };
+
+  const handleClosePdf = () => {
+    setPdfViewerOpen(false);
+    setPdfViewerConfig(null);
   };
 
   if (viewMode === 'documents') {
@@ -408,7 +439,7 @@ export default function App() {
             <ScrollArea className="h-full p-4">
               <div className="space-y-4">
                 {currentConversation?.messages.map((message) => (
-                  <ChatMessage key={message.id} message={message} />
+                  <ChatMessage key={message.id} message={message} onOpenPdf={handleOpenPdf} />
                 ))}
                 <div ref={messagesEndRef} />
               </div>
@@ -419,6 +450,16 @@ export default function App() {
           <ChatInput onSendMessage={handleSendMessage} isSending={!!pendingResponses[currentConversationId]} />
         </div>
       </div>
+
+      {/* PDF Viewer Modal */}
+      {pdfViewerOpen && pdfViewerConfig && (
+        <PdfViewer
+          pdfUrl={pdfViewerConfig.url}
+          pageNumber={pdfViewerConfig.page}
+          searchText={pdfViewerConfig.searchText}
+          onClose={handleClosePdf}
+        />
+      )}
     </div>
   );
 }

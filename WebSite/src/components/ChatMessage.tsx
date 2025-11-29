@@ -1,14 +1,16 @@
-import { Message } from '../App';
-import { Bot, User, FileText } from 'lucide-react';
+import { Message, DocumentSource } from '../App';
+import { Bot, User, FileText, ExternalLink } from 'lucide-react';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 import { LoadingSpinner } from './LoadingSpinner';
 
 interface ChatMessageProps {
   message: Message;
+  onOpenPdf?: (source: string, page?: number, searchText?: string) => void;
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, onOpenPdf }: ChatMessageProps) {
   const isUser = message.type === 'user';
 
   return (
@@ -60,6 +62,57 @@ export function ChatMessage({ message }: ChatMessageProps) {
             <p className="whitespace-pre-wrap break-words">{message.content}</p>
           )}
         </Card>
+
+        {/* Source Documents */}
+        {!isUser && message.sources && message.sources.length > 0 && (
+          <div className="space-y-2 w-full">
+            <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+              📚 Sources ({message.sources.length})
+            </p>
+            <div className="space-y-1">
+              {message.sources.map((source, idx) => (
+                <Card
+                  key={idx}
+                  className="p-2 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                >
+                  <div className="flex items-start gap-2">
+                    <FileText className="size-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate">
+                          {source.source.split('/').pop()}
+                        </p>
+                        {source.page && (
+                          <Badge variant="outline" className="text-xs">
+                            Page {source.page}
+                          </Badge>
+                        )}
+                        {source.score && (
+                          <Badge variant="secondary" className="text-xs">
+                            {(source.score * 100).toFixed(0)}%
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2">
+                        {source.text.substring(0, 120)}...
+                      </p>
+                    </div>
+                    {onOpenPdf && source.source.endsWith('.pdf') && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-6 flex-shrink-0"
+                        onClick={() => onOpenPdf(source.source, source.page, source.text)}
+                      >
+                        <ExternalLink className="size-3" />
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Timestamp */}
         <span className="text-xs text-slate-500 dark:text-slate-400 px-1">

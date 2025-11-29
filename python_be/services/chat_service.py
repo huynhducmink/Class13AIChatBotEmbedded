@@ -72,7 +72,25 @@ def handle_search_function_call(func_call):
     query = args.get("query")
     k = int(args.get("k", 5))
     svc = SearchService()
-    return svc.search(query=query, k=k)
+    raw_results = svc.search(query=query, k=k)
+    
+    # Format results for better consumption
+    formatted_results = []
+    if raw_results and "documents" in raw_results and raw_results["documents"]:
+        for i, doc in enumerate(raw_results["documents"][0]):
+            metadata = raw_results["metadatas"][0][i] if raw_results.get("metadatas") else {}
+            distance = raw_results["distances"][0][i] if raw_results.get("distances") else None
+            
+            formatted_results.append({
+                "text": doc,
+                "source": metadata.get("source", "unknown"),
+                "page": metadata.get("page", None),
+                "chunk_id": metadata.get("chunk_id", None),
+                "distance": distance,
+                "score": 1 - distance if distance is not None else None
+            })
+    
+    return {"results": formatted_results, "raw": raw_results}
 
 def chat_search_auto(prompt: str):
     """

@@ -35,9 +35,9 @@ coverage/
 *.d.ts.map
 
 # Optional lockfiles (handled at workspace root)
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
 
 # Misc
 *.log

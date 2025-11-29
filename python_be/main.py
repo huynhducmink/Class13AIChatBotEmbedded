@@ -1,5 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from pathlib import Path
 from api.routes import search_router
 from api.file_routes import file_router
 from api.index_routes import index_router
@@ -71,6 +74,34 @@ app.include_router(search_router, prefix="/api/v1", tags=["search"])
 app.include_router(file_router, prefix="/api/v1", tags=["files"])
 app.include_router(index_router, prefix="/api/v1", tags=["index"])
 app.include_router(chat_router, prefix="/api/v1", tags=["chat"])
+
+# Mount static files for serving PDFs
+DOCUMENT_SOURCE_DIR = Path("./document_source")
+
+@app.get(
+    "/documents/{filename}",
+    tags=["files"],
+    summary="Serve PDF Document",
+    description="Serve a PDF document from the document_source directory",
+)
+async def serve_document(filename: str):
+    """Serve a PDF document with proper CORS headers."""
+    file_path = DOCUMENT_SOURCE_DIR / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"Document not found: {filename}")
+    if not file_path.is_file():
+        raise HTTPException(status_code=400, detail="Not a file")
+    
+    return FileResponse(
+        path=str(file_path),
+        media_type="application/pdf",
+        filename=filename,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 @app.get(
     "/",
