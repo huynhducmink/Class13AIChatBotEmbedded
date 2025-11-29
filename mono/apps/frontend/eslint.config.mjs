@@ -1,4 +1,4 @@
-import nx from "@nx/eslint-plugin";
+import nx from "";
 import baseConfig from "../../eslint.config.mjs";
 
 export default [
