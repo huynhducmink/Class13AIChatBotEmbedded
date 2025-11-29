@@ -1,5 +1,6 @@
 import { Message } from '../App';
-import { Bot, User, FileText } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Bot, User, FileText, Volume, Volume2 } from 'lucide-react';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 
@@ -53,7 +54,14 @@ export function ChatMessage({ message }: ChatMessageProps) {
               </Badge>
             </div>
           )}
-          <p className="whitespace-pre-wrap break-words">{message.content}</p>
+          <div className="flex items-start gap-2">
+            <p className="whitespace-pre-wrap break-words flex-1">{message.content}</p>
+
+            {/* Inline speaker icon: plays audio URL or uses TTS fallback for bot */}
+            {(message.audio || message.type === 'bot') && (
+              <SpeakerControl message={message} />
+            )}
+          </div>
         </Card>
 
         {/* Timestamp */}
@@ -65,5 +73,101 @@ export function ChatMessage({ message }: ChatMessageProps) {
         </span>
       </div>
     </div>
+  );
+}
+
+function SpeakerControl({ message }: { message: Message }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const utterRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  useEffect(() => {
+    return () => {
+      // cleanup audio or speech on unmount
+      try {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.src = '';
+          audioRef.current = null;
+        }
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+      } catch (e) {
+        // ignore cleanup errors
+      }
+    };
+  }, []);
+
+  const handleAudioToggle = async () => {
+    if (!message.audio) return;
+
+    if (!audioRef.current) {
+      audioRef.current = new Audio(message.audio);
+      audioRef.current.addEventListener('play', () => setIsPlaying(true));
+      audioRef.current.addEventListener('pause', () => setIsPlaying(false));
+      audioRef.current.addEventListener('ended', () => setIsPlaying(false));
+      try {
+        await audioRef.current.play();
+      } catch (e) {
+        // play may be blocked until user interaction — ignore
+      }
+      return;
+    }
+
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      try {
+        await audioRef.current.play();
+      } catch (e) {
+        // ignore
+      }
+    }
+  };
+
+  const handleTtsToggle = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    const synth = window.speechSynthesis;
+    if (synth.speaking || isPlaying) {
+      synth.cancel();
+      setIsPlaying(false);
+      utterRef.current = null;
+      return;
+    }
+
+    const utter = new SpeechSynthesisUtterance(message.content || '');
+    utter.onstart = () => setIsPlaying(true);
+    utter.onend = () => setIsPlaying(false);
+    utter.onerror = () => setIsPlaying(false);
+    utterRef.current = utter;
+    try {
+      synth.speak(utter);
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  const onClick = () => {
+    if (message.audio) {
+      void handleAudioToggle();
+    } else {
+      handleTtsToggle();
+    }
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      aria-label={message.audio ? (isPlaying ? 'Pause audio' : 'Play audio') : (isPlaying ? 'Stop speech' : 'Listen')}
+      className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+    >
+      {isPlaying ? (
+        <Volume2 className="size-5 text-blue-600 animate-pulse" />
+      ) : (
+        <Volume className="size-5 text-slate-600 dark:text-slate-300" />
+      )}
+    </button>
   );
 }
