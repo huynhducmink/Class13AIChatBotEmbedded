@@ -10,9 +10,10 @@ import { fileService } from '../services/fileService';
 
 interface ChatInputProps {
   onSendMessage: (content: string, file?: File) => void;
+  isSending?: boolean;
 }
 
-export function ChatInput({ onSendMessage }: ChatInputProps) {
+export function ChatInput({ onSendMessage, isSending }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -34,6 +35,8 @@ export function ChatInput({ onSendMessage }: ChatInputProps) {
 
   const handleSend = async () => {
     if (!(message.trim() || selectedFile)) return;
+    
+    if (isSending) return; // prevent duplicate sends
 
     setErrorMsg(null);
 
@@ -74,7 +77,7 @@ export function ChatInput({ onSendMessage }: ChatInputProps) {
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      if (!isSending) handleSend();
     }
   };
 
