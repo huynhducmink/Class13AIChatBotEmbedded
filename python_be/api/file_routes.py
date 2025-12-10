@@ -1,14 +1,16 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 import os
 import shutil
 import re
 import unicodedata
 from pathlib import Path
+from services.index_service import IndexService
 
 file_router = APIRouter()
+index_service = IndexService()
 
 # Document source directory
 DOCUMENT_SOURCE_DIR = Path(__file__).parent.parent / "document_source"
@@ -120,6 +122,10 @@ class UploadResponse(BaseModel):
     filename: str = Field(..., description="Name of the uploaded file")
     filepath: str = Field(..., description="Download URL path for the uploaded file")
     size: int = Field(..., description="File size in bytes")
+    indexing_started: Optional[bool] = Field(
+        default=None,
+        description="Whether background indexing was started after upload",
+    )
     
     model_config = {
         "json_schema_extra": {
@@ -198,9 +204,11 @@ async def list_files():
         500: {"description": "Internal server error"},
     },
 )
-async def upload_file(file: UploadFile = File(..., description="File to upload (PDF, TXT, DOCX)")):
+async def upload_file(
+    file: UploadFile = File(..., description="File to upload (PDF, TXT, DOCX)"),
+):
     """
-    Upload a file to the document_source directory.
+    Upload a file to the document_source directory and automatically build embeddings.
     
     **Supported file types:**
     - PDF (.pdf)
@@ -213,8 +221,8 @@ async def upload_file(file: UploadFile = File(..., description="File to upload (
     spaces will be replaced with underscores, and Unicode characters will be converted to ASCII.
     For example: "Competitive Programmer's Handbook.pdf" becomes "Competitive_Programmers_Handbook.pdf"
     
-    The file will be saved in the document_source directory and will be available
-    for indexing when you run the build_index.py script.
+    The file will be saved in the document_source directory and embeddings will be
+    automatically built to include it in the search index.
     """
     try:
         # Validate file extension
@@ -268,12 +276,17 @@ async def upload_file(file: UploadFile = File(..., description="File to upload (
         
         # Get download path for response
         download_path = f"/api/v1/files/download/{safe_filename}"
+
+        # Always rebuild embeddings to include the new file in the search index
+        index_result = index_service.build_index()
+        indexing_started = index_result.get("success", False)
         
         return UploadResponse(
             message="File uploaded successfully",
             filename=safe_filename,
             filepath=download_path,
-            size=total_size
+            size=total_size,
+            indexing_started=indexing_started,
         )
         
     except HTTPException:

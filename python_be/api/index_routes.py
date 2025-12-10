@@ -75,7 +75,7 @@ class IndexStatusResponse(BaseModel):
     }
 
 
-def run_index_build():
+def run_index_build(rebuild: bool = False):
     """Background task to build the index."""
     global indexing_status
     
@@ -83,7 +83,7 @@ def run_index_build():
         indexing_status["is_running"] = True
         indexing_status["progress"] = "Starting indexing process..."
         
-        result = index_service.build_index()
+        result = index_service.build_index(rebuild=rebuild)
         
         indexing_status["last_result"] = result
         indexing_status["is_running"] = False
@@ -102,7 +102,12 @@ def run_index_build():
     response_model=BuildIndexResponse,
     summary="Build Search Index",
     description="""
-    Build or rebuild the search index from all PDF files in the document_source directory.
+    Build or incrementally add to the search index from PDF files in document_source.
+    
+    **Query Parameters:**
+    - `rebuild` (boolean, default=false): 
+      - If `false`: Only indexes NEW files (incremental, faster)
+      - If `true`: Clears and rebuilds entire index from scratch (full rebuild)
     
     This operation:
     1. Scans all PDF files in the document_source directory
@@ -110,9 +115,6 @@ def run_index_build():
     3. Splits text into overlapping chunks (1500 chars with 200 char overlap)
     4. Generates embeddings using sentence-transformers
     5. Stores embeddings in ChromaDB for fast similarity search
-    
-    **Note:** This operation can take several minutes depending on the number and size of documents.
-    Any existing index will be cleared and rebuilt from scratch.
     """,
     responses={
         200: {
@@ -122,11 +124,15 @@ def run_index_build():
         500: {"description": "Error during indexing"},
     },
 )
-async def build_index(background_tasks: BackgroundTasks):
+async def build_index(background_tasks: BackgroundTasks, rebuild: bool = False):
     """
     Build the search index from all PDF files in document_source.
     
-    This endpoint will process all PDFs, extract text, create embeddings,
+    **Parameters:**
+    - `rebuild`: If true, clears all existing data and rebuilds from scratch.
+                If false (default), only indexes new files (incremental).
+    
+    This endpoint will process PDFs, extract text, create embeddings,
     and store them in ChromaDB for semantic search.
     
     The operation runs in the background and returns immediately. Use the
@@ -142,11 +148,12 @@ async def build_index(background_tasks: BackgroundTasks):
         )
     
     # Start indexing in background
-    background_tasks.add_task(run_index_build)
+    background_tasks.add_task(run_index_build, rebuild=rebuild)
     
+    mode = "full rebuild" if rebuild else "incremental"
     return BuildIndexResponse(
         success=True,
-        message="Indexing started in background. Use /index/status to check progress."
+        message=f"Indexing started in background ({mode} mode). Use /index/status to check progress."
     )
 
 
@@ -155,7 +162,12 @@ async def build_index(background_tasks: BackgroundTasks):
     response_model=BuildIndexResponse,
     summary="Build Search Index (Synchronous)",
     description="""
-    Build or rebuild the search index synchronously (waits for completion).
+    Build or incrementally add to the search index synchronously (waits for completion).
+    
+    **Query Parameters:**
+    - `rebuild` (boolean, default=false):
+      - If `false`: Only indexes NEW files (incremental, faster)
+      - If `true`: Clears and rebuilds entire index from scratch (full rebuild)
     
     This is the same as `/index/build` but waits for the indexing to complete
     before returning the result. Use this if you need to know the result immediately.
@@ -170,9 +182,13 @@ async def build_index(background_tasks: BackgroundTasks):
         500: {"description": "Error during indexing"},
     },
 )
-async def build_index_sync():
+async def build_index_sync(rebuild: bool = False):
     """
     Build the search index synchronously (waits for completion).
+    
+    **Parameters:**
+    - `rebuild`: If true, clears all existing data and rebuilds from scratch.
+                If false (default), only indexes new files (incremental).
     
     This endpoint processes all PDFs and returns the result immediately.
     It may take several minutes to complete for large document sets.
@@ -188,7 +204,7 @@ async def build_index_sync():
     
     try:
         indexing_status["is_running"] = True
-        result = index_service.build_index()
+        result = index_service.build_index(rebuild=rebuild)
         indexing_status["last_result"] = result
         indexing_status["is_running"] = False
         

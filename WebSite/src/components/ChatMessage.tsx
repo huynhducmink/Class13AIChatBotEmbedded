@@ -107,11 +107,18 @@ export function ChatMessage({ message, onOpenPdf }: ChatMessageProps) {
                             Page {source.page}
                           </Badge>
                         )}
+                        {/* Show file type badge for non-PDF files */}
+                        {!source.source.endsWith(".pdf") && (
+                          <Badge variant="secondary" className="text-xs">
+                            {source.source.split(".").pop()?.toUpperCase() || "FILE"}
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2">
                         {source.text.substring(0, 120)}...
                       </p>
                     </div>
+                    {/* PDF viewer button for PDFs */}
                     {onOpenPdf && source.source.endsWith(".pdf") && (
                       <Button
                         variant="ghost"
@@ -122,6 +129,40 @@ export function ChatMessage({ message, onOpenPdf }: ChatMessageProps) {
                         }
                       >
                         <ExternalLink className="size-3" />
+                      </Button>
+                    )}
+                    {/* Preview button for TXT files (can open in new tab) */}
+                    {source.source.endsWith(".txt") && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-6 flex-shrink-0"
+                        onClick={() => {
+                          const filename = source.source.split('/').pop() || source.source.split('\\').pop() || source.source;
+                          const viewUrl = `http://localhost:8000/api/v1/files/download/${encodeURIComponent(filename)}`;
+                          window.open(viewUrl, '_blank');
+                        }}
+                        title="View text file"
+                      >
+                        <ExternalLink className="size-3" />
+                      </Button>
+                    )}
+                    {/* Download button for DOCX files (cannot preview) */}
+                    {(source.source.endsWith(".docx") || source.source.endsWith(".doc")) && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-6 flex-shrink-0"
+                        onClick={() => {
+                          const filename = source.source.split('/').pop() || source.source.split('\\').pop() || source.source;
+                          const downloadUrl = `http://localhost:8000/api/v1/files/download/${encodeURIComponent(filename)}`;
+                          window.open(downloadUrl, '_blank');
+                        }}
+                        title="Download file"
+                      >
+                        <svg className="size-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
                       </Button>
                     )}
                   </div>

@@ -52,8 +52,8 @@ def call_openai(messages, functions_arg=None, function_call="auto"):
         function_call=function_call,
     )
 
-def handle_search_function_call(func_call):
-    """Parse arguments and call the local SearchService."""
+def handle_search_function_call(func_call, k_override: int | None = None):
+    """Parse arguments and call the local SearchService, honoring a server-provided k override."""
     print("Function call received:", func_call)
     # func_call may be an object or dict depending on SDK; normalize
     args_str = None
@@ -70,7 +70,8 @@ def handle_search_function_call(func_call):
         return {"error": f"invalid function arguments: {e}"}
 
     query = args.get("query")
-    k = int(args.get("k", 5))
+    # Use server-provided k if supplied; otherwise fall back to client-sent value or default 5
+    k = int(k_override or args.get("k", 5))
     svc = SearchService()
     raw_results = svc.search(query=query, k=k)
     
@@ -92,7 +93,7 @@ def handle_search_function_call(func_call):
     
     return {"results": formatted_results, "raw": raw_results}
 
-def chat_search_auto(prompt: str):
+def chat_search_auto(prompt: str, k: int = 5):
     """
     Use the model in function-call 'auto' mode. If the model calls 'search_documents',
     execute the search locally and return the final assistant response.
@@ -133,7 +134,7 @@ def chat_search_auto(prompt: str):
 
     # If model requested a function call, execute it and send back result as a function role
     if func_call:
-        search_results = handle_search_function_call(func_call)
+        search_results = handle_search_function_call(func_call, k_override=k)
         function_message = {
             "role": "function",
             "name": "search_documents",

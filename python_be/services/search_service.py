@@ -1,6 +1,6 @@
 import chromadb
 from sentence_transformers import SentenceTransformer
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 class SearchService:
     def __init__(self):
@@ -8,13 +8,24 @@ class SearchService:
         self.collection_name = "stm32_manual_embedding"
         self.embedding_model_name = "sentence-transformers/all-MiniLM-L6-v2"
         
-        # Initialize model and client
+        # Initialize model and client (lazy load collection)
         self.model = SentenceTransformer(self.embedding_model_name)
         self.client = chromadb.PersistentClient(path=self.chroma_dir)
-        self.collection = self.client.get_collection(
-            name=self.collection_name,
-            embedding_function=None,
-        )
+        self._collection: Optional[Any] = None
+    
+    def _get_collection(self):
+        """Lazy load the collection on first use."""
+        if self._collection is None:
+            self._collection = self.client.get_or_create_collection(
+                name=self.collection_name,
+                embedding_function=None,
+            )
+        return self._collection
+    
+    @property
+    def collection(self):
+        """Property to access collection with lazy loading."""
+        return self._get_collection()
     
     def search(self, query: str, k: int = 5) -> Dict[str, Any]:
         """
@@ -46,10 +57,14 @@ class SearchService:
         """Get statistics about the document collection."""
         count = self.collection.count()
         
-        # Get a sample to determine available sources
-        sample = self.collection.get(limit=100)
+        # Get ALL documents to determine all available sources
+        if count > 0:
+            sample = self.collection.get()
+        else:
+            sample = {"metadatas": []}
+        
         sources = set()
-        if sample["metadatas"]:
+        if sample.get("metadatas"):
             for meta in sample["metadatas"]:
                 if "source" in meta:
                     sources.add(meta["source"])
@@ -58,5 +73,5 @@ class SearchService:
             "total_chunks": count,
             "collection_name": self.collection_name,
             "embedding_model": self.embedding_model_name,
-            "sources": list(sources)
+            "sources": sorted(list(sources))
         }

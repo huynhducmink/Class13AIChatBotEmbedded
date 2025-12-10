@@ -18,7 +18,7 @@ async def chat_search(req: ChatRequest) -> Dict[str, Any]:
     and return the assistant response plus any local search results.
     """
     try:
-        final_resp, search_results = chat_search_auto(req.prompt)
+        final_resp, search_results = chat_search_auto(req.prompt, req.k or 5)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -39,6 +39,10 @@ async def chat_search(req: ChatRequest) -> Dict[str, Any]:
     sources = []
     if search_results and "results" in search_results:
         sources = search_results["results"]
+    
+    print(f"[DEBUG CHAT] Found {len(sources)} sources from search_results")
+    if sources:
+        print(f"[DEBUG CHAT] First source: {sources[0].get('source', 'unknown')}")
 
     return {
         "response": assistant_message or "No response generated",
