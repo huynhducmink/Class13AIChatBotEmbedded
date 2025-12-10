@@ -10,3 +10,5 @@ devenv.local.yaml
 .pre-commit-config.yaml
 
 node_modules/
+.vscode/
+__pycache__/
