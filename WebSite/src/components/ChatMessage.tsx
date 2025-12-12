@@ -95,11 +95,18 @@ export function ChatMessage({ message, onOpenPdf }: ChatMessageProps) {
                             {source.source.split(".").pop()?.toUpperCase() || "FILE"}
                           </Badge>
                         )}
+                        {/* Show file type badge for non-PDF files */}
+                        {!source.source.endsWith(".pdf") && (
+                          <Badge variant="secondary" className="text-xs">
+                            {source.source.split(".").pop()?.toUpperCase() || "FILE"}
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2">
                         {source.text.substring(0, 120)}...
                       </p>
                     </div>
+                    {/* PDF viewer button for PDFs */}
                     {/* PDF viewer button for PDFs */}
                     {onOpenPdf && source.source.endsWith(".pdf") && (
                       <Button
