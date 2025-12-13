@@ -3,5 +3,11 @@
   "compatibility_date": "2025-12-12",
   "assets": {
     "directory": "./apps/website/build"
-  }
+  },
+  "routes": [
+    {
+      "pattern": "ai-chat.shuvi.dev",
+      "custom_domain": true
+    }
+  ]
 }
